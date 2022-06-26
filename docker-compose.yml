@@ -9,7 +9,7 @@ volumes:
 
 services:
   jupyterlab:
-    image: jupyter/pyspark-notebook:latest
+    image: jupyter/pyspark-notebook:spark-3.2.0
     container_name: jupyterlab
     environment:
       - JUPYTER_ENABLE_LAB=yes
