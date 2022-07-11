@@ -1,0 +1,7 @@
+docker network ls
+docker image ls
+sudo docker run --rm -d --network etl-for-bigdata_localnet --name my_kafka_mongo kafka_mongo
+docker build - < Dockerfile
+sudo docker image build -t python:0.0.1 kafka-mongodb/
+sudo docker run --rm -it --entrypoint bash kafka_mongo
+sudo docker run -it --network etl-for-bigdata_localnet kafka_mongo /bin/bash

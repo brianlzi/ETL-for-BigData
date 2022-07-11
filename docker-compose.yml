@@ -13,14 +13,103 @@ services:
     container_name: jupyterlab
     environment:
       - JUPYTER_ENABLE_LAB=yes
-
-      
     ports:
       - 8888:8888
     volumes:
       - shared-workspace:/opt/workspace
     networks:
       - localnet
+
+  # kafka-mongo:
+  #   build: ./kafka-mongodb
+  #   container_name: kafka-mongodb
+  #   networks:
+  #     - localnet
+
+  zoo:
+    image: zookeeper:3.4.9
+    hostname: zoo
+    ports:
+      - "2181:2181"
+    networks:
+      - localnet
+    environment:
+        ZOO_MY_ID: 1
+        ZOO_PORT: 2181
+        ZOO_SERVERS: server.1=zoo:2888:3888
+    volumes:
+      - ./zk-single-kafka-multiple/zoo/data:/data
+      - ./zk-single-kafka-multiple/zoo/datalog:/datalog
+
+  kafka1:
+    image: confluentinc/cp-kafka:5.3.0
+    hostname: kafka1
+    networks:
+      - localnet
+    ports:
+      - "9091:9091"
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka1:19091,LISTENER_DOCKER_EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9091
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zoo:2181"
+      KAFKA_BROKER_ID: 1
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+    volumes:
+      - ./zk-single-kafka-multiple/kafka1/data:/var/lib/kafka/data
+    depends_on:
+      - zoo
+
+  kafka2:
+    image: confluentinc/cp-kafka:5.3.0
+    hostname: kafka2
+    ports:
+      - "9092:9092"
+    networks:
+      - localnet
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka2:19092,LISTENER_DOCKER_EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zoo:2181"
+      KAFKA_BROKER_ID: 2
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+    volumes:
+      - ./zk-single-kafka-multiple/kafka2/data:/var/lib/kafka/data
+    depends_on:
+      - zoo
+
+  kafka3:
+    image: confluentinc/cp-kafka:5.3.0
+    hostname: kafka3
+    ports:
+      - "9093:9093"
+    networks:
+      - localnet
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://kafka3:19093,LISTENER_DOCKER_EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
+      KAFKA_ZOOKEEPER_CONNECT: "zoo:2181"
+      KAFKA_BROKER_ID: 3
+      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+    volumes:
+      - ./zk-single-kafka-multiple/kafka3/data:/var/lib/kafka/data
+    depends_on:
+      - zoo
+
+  manager:
+    image: sheepkiller/kafka-manager
+    ports:
+      - 9000:9000
+    environment:
+      - ZK_HOSTS=zoo:2181
+    networks:
+      - localnet
+    depends_on:
+      - zoo
+      
+
 
   spark-master:
     image: bde2020/spark-master:3.2.0-hadoop3.2
@@ -42,6 +131,7 @@ services:
       - SPARK_MASTER=spark://spark-master:7077
     ports:
       - 8081:8081
+
     volumes:
       - shared-workspace:/opt/workspace
     depends_on:
@@ -77,6 +167,7 @@ services:
     ports:
       - "27017:27017"
     restart: always
+    
   mongo2:
     image: "mongo:5.0.5"
     container_name: mongo2
@@ -100,6 +191,19 @@ services:
       - "27019:27017"
     restart: always
 
+  mongo-kafka:
+    build: ./kafka-mongodb
+    container_name: mongo_kafka1
+    networks:
+      - localnet
+    depends_on:
+      - zoo
+      - mongo1
+      - mongo2
+      - mongo3
+      - kafka1
+      - kafka2
+      - kafka3
 networks:
     localnet:
         attachable: true
